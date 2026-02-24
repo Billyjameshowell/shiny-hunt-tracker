@@ -1,0 +1,281 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+h1 {
+  font-size: 2.5rem;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+h2 {
+  font-size: 1.3rem;
+  margin-bottom: 15px;
+  color: #aaa;
+}
+
+.add-hunt {
+  background: #16213e;
+  padding: 25px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+
+.search-container {
+  position: relative;
+  margin-bottom: 15px;
+}
+
+#pokemon-search {
+  width: 100%;
+  padding: 12px 15px;
+  font-size: 1rem;
+  border: 2px solid #0f3460;
+  border-radius: 8px;
+  background: #1a1a2e;
+  color: #eee;
+}
+
+#pokemon-search:focus {
+  outline: none;
+  border-color: #ffd700;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #16213e;
+  border: 2px solid #0f3460;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+  z-index: 100;
+}
+
+.search-results.active {
+  display: block;
+}
+
+.search-result-item {
+  padding: 10px 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #0f3460;
+}
+
+.search-result-item:hover {
+  background: #0f3460;
+}
+
+.search-result-item img {
+  width: 40px;
+  height: 40px;
+}
+
+#game-select {
+  width: 100%;
+  padding: 12px 15px;
+  font-size: 1rem;
+  border: 2px solid #0f3460;
+  border-radius: 8px;
+  background: #1a1a2e;
+  color: #eee;
+  margin-bottom: 15px;
+  cursor: pointer;
+}
+
+#start-hunt {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: bold;
+  background: linear-gradient(135deg, #ffd700, #ffaa00);
+  border: none;
+  border-radius: 8px;
+  color: #1a1a2e;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+#start-hunt:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(255, 215, 0, 0.3);
+}
+
+#start-hunt:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hunts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.hunt-card {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 2px solid transparent;
+}
+
+.hunt-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.hunt-card.completed {
+  border-color: #4ade80;
+  background: linear-gradient(135deg, #16213e, #1a3a2e);
+}
+
+.hunt-card .pokemon-sprite {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 15px;
+}
+
+.hunt-card .pokemon-name {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 5px;
+  text-transform: capitalize;
+}
+
+.hunt-card .game-name {
+  font-size: 0.9rem;
+  color: #888;
+  margin-bottom: 15px;
+}
+
+.hunt-card .counter-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.hunt-card .counter-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #ffd700;
+  background: transparent;
+  color: #ffd700;
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hunt-card .counter-btn:hover {
+  background: #ffd700;
+  color: #1a1a2e;
+}
+
+.hunt-card .counter-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #ffd700;
+  min-width: 60px;
+}
+
+.hunt-card .complete-btn {
+  padding: 8px 20px;
+  border-radius: 20px;
+  border: 2px solid #4ade80;
+  background: transparent;
+  color: #4ade80;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hunt-card .complete-btn:hover {
+  background: #4ade80;
+  color: #1a1a2e;
+}
+
+.hunt-card .complete-btn.marked {
+  background: #4ade80;
+  color: #1a1a2e;
+}
+
+.hunt-card .delete-btn {
+  margin-top: 10px;
+  padding: 6px 15px;
+  border-radius: 15px;
+  border: 1px solid #ef4444;
+  background: transparent;
+  color: #ef4444;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hunt-card .delete-btn:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+.hunt-card .date-started {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 10px;
+}
+
+.hunt-card.completed .date-started {
+  color: #4ade80;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 50px 20px;
+  color: #666;
+}
+
+.empty-state p {
+  font-size: 1.1rem;
+}
+
+@media (max-width: 600px) {
+  h1 {
+    font-size: 1.8rem;
+  }
+  
+  .hunts-grid {
+    grid-template-columns: 1fr;
+  }
+}

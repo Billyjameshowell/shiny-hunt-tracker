@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#ffd700">
+  <meta name="description" content="Track your shiny Pokemon hunts">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>">
+  <title>Shiny Hunt Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>✨ Shiny Hunt Tracker</h1>
+    </header>
+    
+    <section class="add-hunt">
+      <h2>Start New Hunt</h2>
+      <div class="search-container">
+        <input type="text" id="pokemon-search" placeholder="Search Pokemon..." autocomplete="off">
+        <div id="search-results" class="search-results"></div>
+      </div>
+      <select id="game-select">
+        <option value="">Select Game</option>
+        <option value="Red/Blue">Gen 1 - Red/Blue</option>
+        <option value="Gold/Silver">Gen 2 - Gold/Silver</option>
+        <option value="FireRed/LeafGreen">Gen 3 - FireRed/LeafGreen</option>
+        <option value="Ruby/Sapphire">Gen 3 - Ruby/Sapphire</option>
+        <option value="Diamond/Pearl">Gen 4 - Diamond/Pearl</option>
+        <option value="Black/White">Gen 5 - Black/White</option>
+        <option value="X/Y">Gen 6 - X/Y</option>
+        <option value="Sun/Moon">Gen 7 - Sun/Moon</option>
+        <option value="Sword/Shield">Gen 8 - Sword/Shield</option>
+        <option value="Scarlet/Violet">Gen 9 - Scarlet/Violet</option>
+        <option value="Legends: Arceus">Gen 8 - Legends: Arceus</option>
+      </select>
+      <button id="start-hunt" disabled>Start Hunt</button>
+    </section>
+    
+    <section class="hunts-list">
+      <h2>Your Hunts</h2>
+      <div id="hunts-container" class="hunts-grid"></div>
+    </section>
+  </div>
+  
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+</body>
+</html>
