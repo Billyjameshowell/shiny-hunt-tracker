@@ -64,12 +64,12 @@ const TYPE_COLOR = {
 const state = {
   hunts: [],
   pendingOps: [],
-  pokemonList: [],       // [{name, id}]
+  pokemonList: [],       // [{name, id, sprite}]  ← sprite now included
   selected: null,        // {name, sprite, types}
   activeTab: 'hunt',
   isOnline: navigator.onLine,
   pendingFoundId: null,
-  tempIdCounter: -1,     // negative IDs for offline-created hunts
+  tempIdCounter: -1,
 };
 
 /* ============================================================
@@ -152,7 +152,6 @@ async function syncPendingOps() {
       } else if (op.type === 'delete') {
         await fetch(`${API}/hunts/${op.id}`, { method: 'DELETE' });
       }
-      // 'create' ops for offline hunts are submitted via startHunt on reconnect
     } catch (_) {
       state.pendingOps.push(op);
     }
@@ -173,7 +172,7 @@ async function loadHunts() {
     const res = await fetch(`${API}/hunts`);
     if (!res.ok) return;
     const hunts = await res.json();
-    // Merge: keep local temp hunts, replace server hunts
+    // Keep local temp hunts (offline-created), replace everything else
     const tempHunts = state.hunts.filter(h => String(h.id).startsWith('t_'));
     state.hunts = [...tempHunts, ...hunts];
     saveToStorage();
@@ -183,6 +182,8 @@ async function loadHunts() {
 
 /* ============================================================
    FETCH POKÉMON LIST (for search autocomplete)
+   The server now includes `sprite` in each entry, so autocomplete
+   can show thumbnails and skip a second API call on selection.
    ============================================================ */
 
 async function loadPokemonList() {
@@ -199,7 +200,7 @@ async function loadPokemonList() {
     const res = await fetch(`${API}/pokemon/list`);
     if (!res.ok) return;
     const list = await res.json();
-    if (list.length === 0) return; // PokeAPI was unavailable
+    if (list.length === 0) return;
     state.pokemonList = list;
     localStorage.setItem(LS_PKMN_LIST, JSON.stringify(list));
     localStorage.setItem(LS_PKMN_TIME, String(Date.now()));
@@ -358,7 +359,6 @@ function buildTrophyCard(hunt) {
     `<span class="type-badge" style="background:${TYPE_COLOR[t] || '#888'}">${t}</span>`
   ).join('');
 
-  // 10 sparkles with randomised positions and delays
   const sparkleHtml = Array.from({ length: 10 }, (_, i) => {
     const sx = (Math.random() * 110 - 5).toFixed(1);
     const sy = (Math.random() * 110 - 5).toFixed(1);
@@ -387,7 +387,7 @@ function buildTrophyCard(hunt) {
 }
 
 /* ============================================================
-   EVENT DELEGATION (hunts + trophy containers)
+   EVENT DELEGATION
    ============================================================ */
 
 document.addEventListener('click', e => {
@@ -406,6 +406,10 @@ document.addEventListener('click', e => {
 
 /* ============================================================
    SEARCH
+   The pokemon list now includes `sprite`, so autocomplete shows
+   thumbnails immediately without any extra network call.
+   When a user selects an entry, we apply the sprite right away
+   and fetch types in the background.
    ============================================================ */
 
 function setupSearch() {
@@ -430,25 +434,26 @@ function setupSearch() {
 function showSearchResults(q) {
   const results = document.getElementById('search-results');
 
-  // Try local list first (fast, offline-capable)
   let matches = state.pokemonList
     .filter(p => p.name.includes(q))
     .slice(0, 10);
 
   if (matches.length > 0) {
     results.innerHTML = matches.map(p => `
-      <div class="search-item" data-name="${p.name}" role="option" tabindex="0">
+      <div class="search-item" data-name="${p.name}" data-sprite="${p.sprite || ''}" role="option" tabindex="0">
+        ${p.sprite ? `<img src="${p.sprite}" alt="${p.name}" loading="lazy">` : ''}
         <span>${cap(p.name)}</span>
       </div>`).join('');
     results.classList.add('active');
     results.querySelectorAll('.search-item').forEach(item => {
-      item.addEventListener('click', () => selectByName(item.dataset.name));
-      item.addEventListener('keydown', e => { if (e.key === 'Enter') selectByName(item.dataset.name); });
+      const handler = () => selectByName(item.dataset.name, item.dataset.sprite);
+      item.addEventListener('click', handler);
+      item.addEventListener('keydown', e => { if (e.key === 'Enter') handler(); });
     });
     return;
   }
 
-  // Fallback: exact API lookup (also populates sprite + types)
+  // Fallback: exact API lookup
   if (state.isOnline) fetchAndShowResult(q);
   else results.classList.remove('active');
 }
@@ -476,27 +481,30 @@ async function fetchAndShowResult(q) {
   } catch (_) {}
 }
 
-async function selectByName(name) {
+// Apply the sprite immediately (from the list), then fetch types in background
+async function selectByName(name, spriteFromList) {
   document.getElementById('search-results').classList.remove('active');
   document.getElementById('pokemon-search').value = '';
 
+  // Instant feedback — sprite already known from the list
+  applySelection(name, spriteFromList || '', []);
+
+  // Fetch types (and possibly a better sprite) in the background
   if (state.isOnline) {
     try {
       const res  = await fetch(`${API}/pokemon/search?q=${encodeURIComponent(name)}`);
       const data = await res.json();
       if (data.length) {
-        applySelection(data[0].name, data[0].sprite, data[0].types || []);
-        return;
+        applySelection(data[0].name, data[0].sprite || spriteFromList || '', data[0].types || []);
       }
     } catch (_) {}
   }
-  applySelection(name, '', []);
 }
 
 function applySelection(name, sprite, types) {
   state.selected = { name, sprite, types };
 
-  document.getElementById('selected-sprite').src    = sprite;
+  document.getElementById('selected-sprite').src       = sprite;
   document.getElementById('selected-name').textContent = cap(name);
   document.getElementById('selected-types').innerHTML  = types.map(t =>
     `<span class="type-badge" style="background:${TYPE_COLOR[t] || '#888'}">${t}</span>`
@@ -575,7 +583,6 @@ function addTempHunt(huntData) {
     completed:    false,
     completed_at: null,
   }, ...state.hunts];
-  // Will be created on server on next sync (not currently implemented for creates, but data preserved)
 }
 
 function resetForm() {
@@ -607,7 +614,7 @@ function incrementCounter(id, delta) {
       body: JSON.stringify({ hunt_count: newCount }),
     }).catch(() => queueOp({ type: 'update', id, data: { hunt_count: newCount } }));
   } else {
-    // Merge: replace any prior count update for this hunt
+    // Collapse multiple pending count updates into one
     state.pendingOps = state.pendingOps.filter(
       op => !(op.type === 'update' && String(op.id) === String(id) && 'hunt_count' in op.data)
     );
@@ -625,9 +632,7 @@ function setupOverlay() {
     document.getElementById('found-overlay').classList.add('hidden');
   });
   document.getElementById('found-overlay').addEventListener('click', e => {
-    if (e.target === e.currentTarget) {
-      e.currentTarget.classList.add('hidden');
-    }
+    if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
   });
 }
 
@@ -662,10 +667,7 @@ async function confirmFound() {
 
   const completedAt = new Date().toISOString();
   const hunt        = getHunt(id);
-  if (hunt) {
-    hunt.completed    = true;
-    hunt.completed_at = completedAt;
-  }
+  if (hunt) { hunt.completed = true; hunt.completed_at = completedAt; }
 
   saveToStorage();
   document.getElementById('found-overlay').classList.add('hidden');
