@@ -1,6 +1,8 @@
 const API_BASE = '/api';
 
 let selectedPokemon = null;
+let huntsState = [];
+const pendingCounterSaves = new Map();
 
 document.addEventListener('DOMContentLoaded', () => {
   loadHunts();
@@ -12,7 +14,8 @@ async function loadHunts() {
   try {
     const response = await fetch(`${API_BASE}/hunts`);
     const hunts = await response.json();
-    renderHunts(hunts);
+    huntsState = hunts;
+    renderHunts(huntsState);
   } catch (error) {
     console.error('Failed to load hunts:', error);
   }
@@ -20,7 +23,7 @@ async function loadHunts() {
 
 function renderHunts(hunts) {
   const container = document.getElementById('hunts-container');
-  
+
   if (hunts.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
@@ -29,16 +32,16 @@ function renderHunts(hunts) {
     `;
     return;
   }
-  
+
   container.innerHTML = hunts.map(hunt => `
     <div class="hunt-card ${hunt.completed ? 'completed' : ''}" data-id="${hunt.id}">
       <img src="${hunt.sprite_url}" alt="${hunt.pokemon_name}" class="pokemon-sprite">
       <div class="pokemon-name">${hunt.pokemon_name}</div>
       <div class="game-name">${hunt.game}</div>
       <div class="counter-section">
-        <button class="counter-btn" onclick="updateCounter(${hunt.id}, ${hunt.hunt_count - 1})">-</button>
+        <button class="counter-btn" onclick="updateCounter(${hunt.id}, -1)">-</button>
         <span class="counter-value">${hunt.hunt_count.toLocaleString()}</span>
-        <button class="counter-btn" onclick="updateCounter(${hunt.id}, ${hunt.hunt_count + 1})">+</button>
+        <button class="counter-btn" onclick="updateCounter(${hunt.id}, 1)">+</button>
       </div>
       <button class="complete-btn ${hunt.completed ? 'marked' : ''}" onclick="toggleComplete(${hunt.id}, ${!hunt.completed})">
         ${hunt.completed ? '✓ Completed!' : 'Mark Complete'}
@@ -52,9 +55,9 @@ function renderHunts(hunts) {
 function setupSearch() {
   const searchInput = document.getElementById('pokemon-search');
   const searchResults = document.getElementById('search-results');
-  
+
   let debounceTimer;
-  
+
   searchInput.addEventListener('input', (e) => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
@@ -64,15 +67,15 @@ function setupSearch() {
       } else {
         searchResults.classList.remove('active');
       }
-    }, 300);
+    }, 250);
   });
-  
+
   searchInput.addEventListener('blur', () => {
     setTimeout(() => {
       searchResults.classList.remove('active');
     }, 200);
   });
-  
+
   searchInput.addEventListener('focus', () => {
     if (searchInput.value.trim().length >= 2) {
       searchPokemon(searchInput.value.trim());
@@ -92,21 +95,21 @@ async function searchPokemon(query) {
 
 function renderSearchResults(results) {
   const searchResults = document.getElementById('search-results');
-  
+
   if (results.length === 0) {
     searchResults.classList.remove('active');
     return;
   }
-  
+
   searchResults.innerHTML = results.map(pokemon => `
     <div class="search-result-item" data-name="${pokemon.name}" data-sprite="${pokemon.sprite}">
       <img src="${pokemon.sprite}" alt="${pokemon.name}">
       <span style="text-transform: capitalize;">${pokemon.name}</span>
     </div>
   `).join('');
-  
+
   searchResults.classList.add('active');
-  
+
   searchResults.querySelectorAll('.search-result-item').forEach(item => {
     item.addEventListener('click', () => {
       selectPokemon(item.dataset.name, item.dataset.sprite);
@@ -134,10 +137,10 @@ function updateStartButton() {
 
 async function startHunt() {
   if (!selectedPokemon) return;
-  
+
   const gameSelect = document.getElementById('game-select');
   const game = gameSelect.value;
-  
+
   try {
     const response = await fetch(`${API_BASE}/hunts`, {
       method: 'POST',
@@ -148,12 +151,15 @@ async function startHunt() {
         sprite_url: selectedPokemon.sprite
       })
     });
-    
+
     if (response.ok) {
+      const created = await response.json();
+      huntsState = [created, ...huntsState];
+      renderHunts(huntsState);
+
       selectedPokemon = null;
       gameSelect.value = '';
       updateStartButton();
-      loadHunts();
     }
   } catch (error) {
     console.error('Failed to start hunt:', error);
@@ -162,41 +168,74 @@ async function startHunt() {
 
 document.getElementById('start-hunt').addEventListener('click', startHunt);
 
-async function updateCounter(id, count) {
-  if (count < 0) count = 0;
-  
-  try {
-    await fetch(`${API_BASE}/hunts/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hunt_count: count })
-    });
-    loadHunts();
-  } catch (error) {
+function saveCounter(id) {
+  const hunt = huntsState.find(h => h.id === id);
+  if (!hunt) return;
+
+  fetch(`${API_BASE}/hunts/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hunt_count: hunt.hunt_count })
+  }).catch((error) => {
     console.error('Failed to update counter:', error);
+  });
+}
+
+function scheduleCounterSave(id) {
+  if (pendingCounterSaves.has(id)) {
+    clearTimeout(pendingCounterSaves.get(id));
   }
+
+  const timeout = setTimeout(() => {
+    pendingCounterSaves.delete(id);
+    saveCounter(id);
+  }, 250);
+
+  pendingCounterSaves.set(id, timeout);
+}
+
+function updateCounter(id, delta) {
+  const hunt = huntsState.find(h => h.id === id);
+  if (!hunt) return;
+
+  hunt.hunt_count = Math.max(0, hunt.hunt_count + delta);
+  renderHunts(huntsState);
+  scheduleCounterSave(id);
 }
 
 async function toggleComplete(id, completed) {
+  const hunt = huntsState.find(h => h.id === id);
+  if (!hunt) return;
+
+  const prev = hunt.completed;
+  hunt.completed = completed;
+  renderHunts(huntsState);
+
   try {
     await fetch(`${API_BASE}/hunts/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ completed })
     });
-    loadHunts();
   } catch (error) {
+    hunt.completed = prev;
+    renderHunts(huntsState);
     console.error('Failed to toggle complete:', error);
   }
 }
 
 async function deleteHunt(id) {
   if (!confirm('Delete this hunt?')) return;
-  
+
+  const prev = huntsState;
+  huntsState = huntsState.filter(h => h.id !== id);
+  renderHunts(huntsState);
+
   try {
     await fetch(`${API_BASE}/hunts/${id}`, { method: 'DELETE' });
-    loadHunts();
   } catch (error) {
+    huntsState = prev;
+    renderHunts(huntsState);
     console.error('Failed to delete hunt:', error);
   }
 }
