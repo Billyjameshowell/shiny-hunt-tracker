@@ -1,17 +1,45 @@
 {
   "name": "Shiny Hunt Tracker",
   "short_name": "Shiny Hunt",
-  "description": "Track your shiny Pokemon hunts",
+  "description": "Track your Pokémon shiny hunts — offline-ready PWA with type-coloured cards, shiny odds, and a trophy cabinet",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#ffd700",
-  "orientation": "portrait",
+  "background_color": "#0d0d1a",
+  "theme_color": "#0d0d1a",
+  "orientation": "portrait-primary",
+  "categories": ["games", "utilities"],
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%230d0d1a'/><text y='72' x='50' text-anchor='middle' font-size='62'>✨</text></svg>",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='28' fill='%230d0d1a'/><text y='72' x='50' text-anchor='middle' font-size='62'>✨</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start New Hunt",
+      "short_name": "New Hunt",
+      "description": "Start tracking a new shiny hunt",
+      "url": "/?tab=hunt"
+    },
+    {
+      "name": "Trophy Cabinet",
+      "short_name": "Trophies",
+      "description": "View your found shinies",
+      "url": "/?tab=trophy"
+    },
+    {
+      "name": "Statistics",
+      "short_name": "Stats",
+      "description": "View your hunt statistics",
+      "url": "/?tab=stats"
     }
   ]
 }
