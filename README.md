@@ -1,6 +1,6 @@
 # Shiny Hunt Tracker (Web)
 
-Track your Pokémon shiny hunts with a clean dashboard and tap counter.
+Track Pokemon shiny hunts with a clean dashboard, tap-friendly encounter counters, shiny odds, target progress, stats, trophy cabinet, and offline-ready PWA support.
 
 ## Live App
 - https://shiny-hunt-tracker.fly.dev/
@@ -13,6 +13,7 @@ Track your Pokémon shiny hunts with a clean dashboard and tap counter.
 - Mark hunts complete/uncomplete
 - Persistent PostgreSQL storage
 - PWA support (Add to Home Screen)
+- SEO metadata, sitemap, robots.txt, and share image
 
 ## Tech Stack
 - Node.js + Express
@@ -29,6 +30,9 @@ cp .env.example .env
 npm run dev
 ```
 
+If `DATABASE_URL` is not set, the server uses temporary in-memory storage so the UI can be tested locally without Postgres.
+By default, local development runs on `http://localhost:5055`; set `PORT` to override it.
+
 ## Deploy
 ```bash
 fly deploy
@@ -40,6 +44,7 @@ fly deploy
 - `PUT /api/hunts/:id`
 - `DELETE /api/hunts/:id`
 - `GET /api/pokemon/search?q=...`
+- `GET /api/pokemon/list`
 
 ## Owner
 - Billyjameshowell

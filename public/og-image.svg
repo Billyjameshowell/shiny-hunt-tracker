@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Shiny Hunt Tracker">
+  <rect width="1200" height="630" fill="#0d0d1a"/>
+  <rect x="80" y="80" width="1040" height="470" rx="24" fill="#16213e" stroke="#2a3a60" stroke-width="4"/>
+  <circle cx="250" cy="315" r="128" fill="#1a2545" stroke="#ffd700" stroke-width="18"/>
+  <path d="M250 210l22 62 66 4-52 40 18 64-54-36-54 36 18-64-52-40 66-4z" fill="#ffd700"/>
+  <text x="430" y="275" fill="#ffd700" font-family="Arial, sans-serif" font-size="76" font-weight="800">Shiny Hunt Tracker</text>
+  <text x="434" y="355" fill="#e8e8f0" font-family="Arial, sans-serif" font-size="34">Fast encounter counters, shiny odds, stats, and trophies.</text>
+  <text x="434" y="410" fill="#7a8099" font-family="Arial, sans-serif" font-size="28">Offline-ready Pokemon shiny hunting PWA</text>
+</svg>

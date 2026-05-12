@@ -19,8 +19,12 @@
   --green:     #4ade80;
   --red:       #ef4444;
   --border:    #2a3a60;
-  --radius:    14px;
+  --radius:    8px;
   --radius-sm: 8px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -30,6 +34,25 @@ body {
   min-height: 100vh;
   padding-bottom: max(env(safe-area-inset-bottom), 24px);
   overscroll-behavior: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+select {
+  min-height: 44px;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+.search-item:focus-visible {
+  outline: 3px solid rgba(255, 215, 0, 0.55);
+  outline-offset: 2px;
 }
 
 /* ============================================================
@@ -112,7 +135,8 @@ body {
   font-size: 1.9rem;
   color: var(--gold);
   text-shadow: 0 0 24px var(--gold-glow);
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
+  text-align: center;
 }
 
 .sync-badge {
@@ -441,6 +465,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 /* Sprite */
@@ -451,6 +476,10 @@ body {
   align-items: center;
   justify-content: center;
   position: relative;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(255, 215, 0, 0.14), transparent 58%),
+    rgba(13, 13, 26, 0.24);
 }
 
 .pokemon-sprite {
@@ -473,12 +502,14 @@ body {
   color: var(--text);
   text-transform: capitalize;
   text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .game-label {
   font-size: 0.72rem;
   color: var(--text-muted);
   text-align: center;
+  overflow-wrap: anywhere;
 }
 
 /* Type badges */
@@ -724,6 +755,17 @@ body {
 }
 
 .stat-icon { font-size: 1.8rem; flex-shrink: 0; }
+.stat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 215, 0, 0.11);
+  color: var(--gold);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
 
 .stat-card-label {
   font-size: 0.7rem;
@@ -874,12 +916,23 @@ body {
    ============================================================ */
 
 @media (max-width: 600px) {
-  .app-header h1    { font-size: 1.55rem; }
-  .hunts-grid       { grid-template-columns: repeat(2, 1fr); }
-  .trophy-grid      { grid-template-columns: repeat(2, 1fr); }
+  .app              { padding-inline: 12px; }
+  .app-header       { padding-top: 18px; }
+  .app-header h1    { font-size: 1.45rem; line-height: 1.2; }
+  .sync-badge       { position: static; }
+  .stats-bar        { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .stat-pill        { min-width: 0; }
+  .tab-btn          { font-size: 0.82rem; padding-inline: 6px; }
+  .new-hunt-panel   { padding: 16px; }
+  .hunts-grid       { grid-template-columns: 1fr; }
+  .trophy-grid      { grid-template-columns: 1fr; }
   .stats-grid       { grid-template-columns: 1fr; }
   .target-row       { flex-direction: column; align-items: flex-start; gap: 6px; }
   #target-count     { width: 100%; }
+  .hunt-card:hover  { transform: none; }
+  .counter-btn:hover,
+  .found-btn:hover,
+  #found-confirm:hover { transform: none; }
 }
 
 @media (max-width: 360px) {

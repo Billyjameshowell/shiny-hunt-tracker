@@ -1,7 +1,7 @@
 {
   "name": "Shiny Hunt Tracker",
   "short_name": "Shiny Hunt",
-  "description": "Track your Pokémon shiny hunts — offline-ready PWA with type-coloured cards, shiny odds, and a trophy cabinet",
+  "description": "Track Pokemon shiny hunts with fast counters, shiny odds, progress targets, stats, and an offline-ready trophy cabinet.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d0d1a",
@@ -10,14 +10,14 @@
   "categories": ["games", "utilities"],
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%230d0d1a'/><text y='72' x='50' text-anchor='middle' font-size='62'>✨</text></svg>",
-      "sizes": "any",
+      "src": "/icon.svg",
+      "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='28' fill='%230d0d1a'/><text y='72' x='50' text-anchor='middle' font-size='62'>✨</text></svg>",
-      "sizes": "any",
+      "src": "/apple-touch-icon.svg",
+      "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "maskable"
     }
