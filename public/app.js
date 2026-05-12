@@ -143,14 +143,29 @@ async function syncPendingOps() {
 
   for (const op of ops) {
     try {
-      if (op.type === 'update') {
-        await fetch(`${API}/hunts/${op.id}`, {
+      if (op.type === 'create') {
+        const res = await fetch(`${API}/hunts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(op.data),
+        });
+        if (!res.ok) throw new Error('create failed');
+        const saved = await res.json();
+        state.hunts = state.hunts.map(h => String(h.id) === String(op.tempId) ? saved : h);
+        ops.forEach(nextOp => {
+          if (String(nextOp.id) === String(op.tempId)) nextOp.id = saved.id;
+        });
+        saveToStorage();
+      } else if (op.type === 'update') {
+        const res = await fetch(`${API}/hunts/${op.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(op.data),
         });
+        if (!res.ok) throw new Error('update failed');
       } else if (op.type === 'delete') {
-        await fetch(`${API}/hunts/${op.id}`, { method: 'DELETE' });
+        const res = await fetch(`${API}/hunts/${op.id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('delete failed');
       }
     } catch (_) {
       state.pendingOps.push(op);
@@ -237,7 +252,7 @@ function renderActiveHunts() {
   const active    = state.hunts.filter(h => !h.completed);
 
   if (active.length === 0) {
-    container.innerHTML = `<div class="empty-state">No active hunts yet.<br>Search for a Pokémon above to start! ✨</div>`;
+    container.innerHTML = `<div class="empty-state">No active hunts yet.<br>Search for a Pokemon above to start.</div>`;
     return;
   }
   container.innerHTML = active.map(buildHuntCard).join('');
@@ -248,7 +263,7 @@ function renderTrophy() {
   const found     = state.hunts.filter(h => h.completed);
 
   if (found.length === 0) {
-    container.innerHTML = `<div class="empty-state">No shinies found yet.<br>Keep hunting! 🍀</div>`;
+    container.innerHTML = `<div class="empty-state">No shinies found yet.<br>Keep hunting.</div>`;
     return;
   }
   container.innerHTML = found.map(buildTrophyCard).join('');
@@ -273,13 +288,13 @@ function renderFullStats() {
   const longest  = found.reduce((m, h) => (!m || h.hunt_count > m.hunt_count) ? h : m, null);
 
   const rows = [
-    { icon: '🎯', label: 'Hunts Started',           value: hunts.length },
-    { icon: '✨', label: 'Shinies Found',            value: found.length },
-    { icon: '⚔️', label: 'Active Hunts',             value: active.length },
-    { icon: '🎲', label: 'Total Encounters',          value: totalE.toLocaleString() },
-    { icon: '📊', label: 'Avg Encounters per Shiny', value: avgE ? avgE.toLocaleString() : '—' },
-    luckiest ? { icon: '🍀', label: 'Luckiest Hunt', value: `${cap(luckiest.pokemon_name)} (${luckiest.hunt_count.toLocaleString()})` } : null,
-    longest  ? { icon: '😅', label: 'Longest Hunt',  value: `${cap(longest.pokemon_name)} (${longest.hunt_count.toLocaleString()})` } : null,
+    { icon: 'H', label: 'Hunts Started',           value: hunts.length },
+    { icon: 'S', label: 'Shinies Found',            value: found.length },
+    { icon: 'A', label: 'Active Hunts',             value: active.length },
+    { icon: '#', label: 'Total Encounters',          value: totalE.toLocaleString() },
+    { icon: 'AVG', label: 'Avg Encounters per Shiny', value: avgE ? avgE.toLocaleString() : '—' },
+    luckiest ? { icon: 'LOW', label: 'Luckiest Hunt', value: `${cap(luckiest.pokemon_name)} (${luckiest.hunt_count.toLocaleString()})` } : null,
+    longest  ? { icon: 'HIGH', label: 'Longest Hunt',  value: `${cap(longest.pokemon_name)} (${longest.hunt_count.toLocaleString()})` } : null,
   ].filter(Boolean);
 
   container.innerHTML = rows.map(r => `
@@ -305,7 +320,7 @@ function buildHuntCard(hunt) {
   const count       = hunt.hunt_count || 0;
 
   const typeBadgesHtml = types.map(t =>
-    `<span class="type-badge" style="background:${TYPE_COLOR[t] || '#888'}">${t}</span>`
+    `<span class="type-badge" style="background:${TYPE_COLOR[t] || '#888'}">${escapeHtml(t)}</span>`
   ).join('');
 
   const odds = GAME_ODDS[hunt.game];
@@ -330,10 +345,10 @@ function buildHuntCard(hunt) {
       <div class="card-type-bar"></div>
       <div class="card-body">
         <div class="sprite-wrap">
-          <img src="${hunt.sprite_url || ''}" alt="${hunt.pokemon_name}" class="pokemon-sprite" loading="lazy">
+          <img src="${escapeAttr(hunt.sprite_url || '/icon.svg')}" alt="${escapeAttr(hunt.pokemon_name)}" class="pokemon-sprite" loading="lazy" onerror="this.onerror=null;this.src='/icon.svg';">
         </div>
-        <div class="pokemon-name">${cap(hunt.pokemon_name)}</div>
-        <div class="game-label">${hunt.game}</div>
+        <div class="pokemon-name">${escapeHtml(cap(hunt.pokemon_name))}</div>
+        <div class="game-label">${escapeHtml(hunt.game)}</div>
         <div class="type-badges">${typeBadgesHtml}</div>
         ${oddsHtml}
         ${progressHtml}
@@ -342,8 +357,8 @@ function buildHuntCard(hunt) {
           <span class="counter-value">${count.toLocaleString()}</span>
           <button class="counter-btn" data-action="inc" data-id="${id}" aria-label="Increase">+</button>
         </div>
-        <button class="found-btn" data-action="found" data-id="${id}">✨ Found It!</button>
-        <button class="delete-btn" data-action="delete" data-id="${id}">🗑 Delete</button>
+        <button class="found-btn" data-action="found" data-id="${id}">Found It</button>
+        <button class="delete-btn" data-action="delete" data-id="${id}">Delete</button>
         <div class="date-label">Started ${fmtDate(hunt.date_started)}</div>
       </div>
     </div>`;
@@ -356,7 +371,7 @@ function buildTrophyCard(hunt) {
   const id          = hunt.id;
 
   const typeBadgesHtml = types.map(t =>
-    `<span class="type-badge" style="background:${TYPE_COLOR[t] || '#888'}">${t}</span>`
+    `<span class="type-badge" style="background:${TYPE_COLOR[t] || '#888'}">${escapeHtml(t)}</span>`
   ).join('');
 
   const sparkleHtml = Array.from({ length: 10 }, (_, i) => {
@@ -374,14 +389,14 @@ function buildTrophyCard(hunt) {
       <div class="sparkle-container">${sparkleHtml}</div>
       <div class="card-body shiny-glow">
         <div class="sprite-wrap">
-          <img src="${hunt.sprite_url || ''}" alt="${hunt.pokemon_name}" class="pokemon-sprite" loading="lazy">
+          <img src="${escapeAttr(hunt.sprite_url || '/icon.svg')}" alt="${escapeAttr(hunt.pokemon_name)}" class="pokemon-sprite" loading="lazy" onerror="this.onerror=null;this.src='/icon.svg';">
         </div>
-        <div class="pokemon-name">${cap(hunt.pokemon_name)}</div>
-        <div class="game-label">${hunt.game}</div>
+        <div class="pokemon-name">${escapeHtml(cap(hunt.pokemon_name))}</div>
+        <div class="game-label">${escapeHtml(hunt.game)}</div>
         <div class="type-badges">${typeBadgesHtml}</div>
         <div class="found-count">Found after<br><strong>${(hunt.hunt_count || 0).toLocaleString()}</strong> encounters</div>
         ${foundDate ? `<div class="date-label">${foundDate}</div>` : ''}
-        <button class="unmark-btn" data-action="unmark" data-id="${id}">↩ Un-mark</button>
+        <button class="unmark-btn" data-action="unmark" data-id="${id}">Un-mark</button>
       </div>
     </div>`;
 }
@@ -441,8 +456,8 @@ function showSearchResults(q) {
   if (matches.length > 0) {
     results.innerHTML = matches.map(p => `
       <div class="search-item" data-name="${p.name}" data-sprite="${p.sprite || ''}" role="option" tabindex="0">
-        ${p.sprite ? `<img src="${p.sprite}" alt="${p.name}" loading="lazy">` : ''}
-        <span>${cap(p.name)}</span>
+        ${p.sprite ? `<img src="${escapeAttr(p.sprite)}" alt="${escapeAttr(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/icon.svg';">` : ''}
+        <span>${escapeHtml(cap(p.name))}</span>
       </div>`).join('');
     results.classList.add('active');
     results.querySelectorAll('.search-item').forEach(item => {
@@ -467,8 +482,8 @@ async function fetchAndShowResult(q) {
 
     results.innerHTML = data.map(p => `
       <div class="search-item" data-name="${p.name}" data-sprite="${p.sprite || ''}" data-types="${(p.types || []).join(',')}">
-        ${p.sprite ? `<img src="${p.sprite}" alt="${p.name}" loading="lazy">` : ''}
-        <span>${cap(p.name)}</span>
+        ${p.sprite ? `<img src="${escapeAttr(p.sprite)}" alt="${escapeAttr(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/icon.svg';">` : ''}
+        <span>${escapeHtml(cap(p.name))}</span>
       </div>`).join('');
     results.classList.add('active');
 
@@ -507,7 +522,7 @@ function applySelection(name, sprite, types) {
   document.getElementById('selected-sprite').src       = sprite;
   document.getElementById('selected-name').textContent = cap(name);
   document.getElementById('selected-types').innerHTML  = types.map(t =>
-    `<span class="type-badge" style="background:${TYPE_COLOR[t] || '#888'}">${t}</span>`
+    `<span class="type-badge" style="background:${TYPE_COLOR[t] || '#888'}">${escapeHtml(t)}</span>`
   ).join('');
 
   document.getElementById('selected-preview').classList.remove('hidden');
@@ -583,6 +598,7 @@ function addTempHunt(huntData) {
     completed:    false,
     completed_at: null,
   }, ...state.hunts];
+  queueOp({ type: 'create', tempId, data: huntData });
 }
 
 function resetForm() {
@@ -797,6 +813,20 @@ function queueOp(op) {
 function cap(str) {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#96;');
 }
 
 function calcProb(count, odds) {

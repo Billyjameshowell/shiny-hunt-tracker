@@ -4,16 +4,31 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5055;
+const host = process.env.HOST || '0.0.0.0';
+const hasDatabase = Boolean(process.env.DATABASE_URL);
 
-app.use(cors());
+app.disable('x-powered-by');
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || true,
+}));
 app.use(express.json());
 app.use(express.static('public'));
 
-const pool = new Pool({
+const pool = hasDatabase ? new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+}) : null;
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
 });
+
+const memoryHunts = [];
+let memoryId = 1;
 
 // ── Caches ─────────────────────────────────────────────────────────────────────
 // Full Pokémon list (name + id + shiny sprite URL) — refresh every 6 hours
@@ -28,6 +43,10 @@ const POKEMON_BY_NAME_TTL = 1000 * 60 * 60 * 24;
 // ── DB init ────────────────────────────────────────────────────────────────────
 
 async function initDB() {
+  if (!hasDatabase) {
+    console.warn('DATABASE_URL not set; using in-memory storage for local UI development.');
+    return;
+  }
   const client = await pool.connect();
   try {
     await client.query(`
@@ -101,6 +120,10 @@ async function getPokemonByName(name) {
 // ── Hunts ──────────────────────────────────────────────────────────────────────
 
 app.get('/api/hunts', async (req, res) => {
+  if (!hasDatabase) {
+    res.json([...memoryHunts].sort((a, b) => new Date(b.date_started) - new Date(a.date_started)));
+    return;
+  }
   try {
     const result = await pool.query('SELECT * FROM shiny_hunts ORDER BY date_started DESC');
     const rows = result.rows.map(r => ({
@@ -115,6 +138,26 @@ app.get('/api/hunts', async (req, res) => {
 
 app.post('/api/hunts', async (req, res) => {
   const { pokemon_name, game, sprite_url, types = [], target_count } = req.body;
+  if (!pokemon_name || !game || !sprite_url) {
+    return res.status(400).json({ error: 'pokemon_name, game, and sprite_url are required' });
+  }
+  if (!hasDatabase) {
+    const hunt = {
+      id: memoryId++,
+      pokemon_name,
+      game,
+      sprite_url,
+      types: Array.isArray(types) ? types : [],
+      hunt_count: 0,
+      target_count: target_count || null,
+      date_started: new Date().toISOString(),
+      completed: false,
+      completed_at: null,
+    };
+    memoryHunts.unshift(hunt);
+    res.json(hunt);
+    return;
+  }
   try {
     const result = await pool.query(
       'INSERT INTO shiny_hunts (pokemon_name, game, sprite_url, types, target_count) VALUES ($1, $2, $3, $4, $5) RETURNING *',
@@ -132,6 +175,17 @@ app.put('/api/hunts/:id', async (req, res) => {
   const { hunt_count, completed, completed_at, target_count } = req.body;
 
   try {
+    if (!hasDatabase) {
+      const hunt = memoryHunts.find(h => String(h.id) === String(id));
+      if (!hunt) return res.status(404).json({ error: 'Hunt not found' });
+      if (hunt_count !== undefined) hunt.hunt_count = hunt_count;
+      if (completed !== undefined) hunt.completed = completed;
+      if (completed_at !== undefined) hunt.completed_at = completed_at;
+      if (target_count !== undefined) hunt.target_count = target_count;
+      res.json(hunt);
+      return;
+    }
+
     const setClauses = [];
     const params = [];
     let idx = 1;
@@ -148,6 +202,7 @@ app.put('/api/hunts/:id', async (req, res) => {
       `UPDATE shiny_hunts SET ${setClauses.join(', ')} WHERE id = $${idx} RETURNING *`,
       params
     );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Hunt not found' });
     const row = { ...result.rows[0], types: JSON.parse(result.rows[0].types || '[]') };
     res.json(row);
   } catch (err) {
@@ -157,6 +212,12 @@ app.put('/api/hunts/:id', async (req, res) => {
 
 app.delete('/api/hunts/:id', async (req, res) => {
   try {
+    if (!hasDatabase) {
+      const index = memoryHunts.findIndex(h => String(h.id) === String(req.params.id));
+      if (index !== -1) memoryHunts.splice(index, 1);
+      res.json({ success: true });
+      return;
+    }
     await pool.query('DELETE FROM shiny_hunts WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (err) {
@@ -201,6 +262,19 @@ app.get('/api/pokemon/list', async (req, res) => {
 
 app.get('/api/stats', async (req, res) => {
   try {
+    if (!hasDatabase) {
+      const completed = memoryHunts.filter(h => h.completed);
+      const total = memoryHunts.reduce((sum, h) => sum + (h.hunt_count || 0), 0);
+      res.json({
+        active_count: memoryHunts.length - completed.length,
+        completed_count: completed.length,
+        total_encounters: total,
+        avg_encounters: completed.length ? Math.round(completed.reduce((sum, h) => sum + (h.hunt_count || 0), 0) / completed.length) : null,
+        luckiest: completed.sort((a, b) => a.hunt_count - b.hunt_count)[0] || null,
+        longest: completed.sort((a, b) => b.hunt_count - a.hunt_count)[0] || null,
+      });
+      return;
+    }
     const totals = await pool.query(`
       SELECT
         COUNT(*) FILTER (WHERE NOT completed)    AS active_count,
@@ -224,7 +298,7 @@ app.get('/api/stats', async (req, res) => {
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
 initDB().then(() => {
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`Server running on 0.0.0.0:${port}`);
+  app.listen(port, host, () => {
+    console.log(`Server running on ${host}:${port}`);
   });
 });

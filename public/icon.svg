@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Shiny Hunt Tracker">
+  <rect width="512" height="512" rx="92" fill="#0d0d1a"/>
+  <circle cx="256" cy="256" r="168" fill="#16213e" stroke="#ffd700" stroke-width="22"/>
+  <path d="M256 126l30 82 88 4-69 54 23 86-72-48-72 48 23-86-69-54 88-4z" fill="#ffd700"/>
+  <circle cx="256" cy="256" r="36" fill="#0d0d1a"/>
+</svg>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shiny-hunt-v2';
+const CACHE_NAME = 'shiny-hunt-v3';
 
 const STATIC_ASSETS = [
   '/',
@@ -6,6 +6,9 @@ const STATIC_ASSETS = [
   '/styles.css',
   '/app.js',
   '/manifest.json',
+  '/icon.svg',
+  '/apple-touch-icon.svg',
+  '/og-image.svg',
 ];
 
 // ── Install: pre-cache static shell ────────────────────────────────────────────
