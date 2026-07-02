@@ -1,4 +1,6 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const { Pool } = require('pg');
 const cors = require('cors');
 require('dotenv').config();
@@ -7,18 +9,62 @@ const app = express();
 const port = process.env.PORT || 5055;
 const host = process.env.HOST || '0.0.0.0';
 const hasDatabase = Boolean(process.env.DATABASE_URL);
+const SITE_URL = (process.env.SITE_URL || 'https://shiny-hunt-tracker.fly.dev').replace(/\/$/, '');
+
+if (process.env.NODE_ENV === 'production' && !hasDatabase) {
+  console.error('WARNING: DATABASE_URL is not set in production. Hunts will not persist across restarts.');
+}
 
 app.disable('x-powered-by');
 app.use(cors({
   origin: process.env.CORS_ORIGIN || true,
 }));
 app.use(express.json());
-app.use(express.static('public'));
 
 const pool = hasDatabase ? new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 }) : null;
+
+function siteTemplate(filename) {
+  const raw = fs.readFileSync(path.join(__dirname, 'public', filename), 'utf8');
+  return raw.replaceAll('__SITE_URL__', SITE_URL);
+}
+
+app.get('/api/health', async (req, res) => {
+  const health = {
+    status: 'ok',
+    storage: hasDatabase ? 'postgres' : 'memory',
+    siteUrl: SITE_URL,
+    timestamp: new Date().toISOString(),
+  };
+
+  if (hasDatabase) {
+    try {
+      await pool.query('SELECT 1');
+      health.database = 'connected';
+    } catch (_) {
+      health.status = 'degraded';
+      health.database = 'error';
+    }
+  }
+
+  res.status(health.status === 'ok' ? 200 : 503).json(health);
+});
+
+app.get('/', (req, res) => {
+  res.type('html').send(siteTemplate('index.html'));
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send(siteTemplate('robots.txt'));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  res.type('application/xml').send(siteTemplate('sitemap.xml'));
+});
+
+app.use(express.static('public'));
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
