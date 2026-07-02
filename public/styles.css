@@ -592,6 +592,127 @@ select:focus-visible,
 .odds-medium { color: #f59e0b; background: rgba(245, 158,  11, 0.15); }
 .odds-high   { color: #f87171; background: rgba(248, 113, 113, 0.16); }
 
+.odds-help-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.odds-help-btn {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+.odds-help-btn:hover,
+.odds-help-btn:focus-visible {
+  color: var(--gold);
+  border-color: var(--gold);
+  outline: none;
+}
+
+.odds-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 200px;
+  padding: 8px 10px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 10;
+}
+
+.odds-help-wrap.open .odds-tooltip,
+.odds-help-wrap:hover .odds-tooltip,
+.odds-help-wrap:focus-within .odds-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Hunts loading */
+.hunts-loading-indicator {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: -8px 0 12px;
+  text-align: center;
+}
+
+.hunts-loading .hunts-grid {
+  opacity: 0.55;
+  transition: opacity 0.2s;
+}
+
+.hunt-card-skeleton {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.skeleton-bar {
+  height: 5px;
+  background: linear-gradient(90deg, var(--border) 25%, #2f4068 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-body {
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.skeleton-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--border) 25%, #2f4068 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--border) 25%, #2f4068 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton-line.wide  { width: 70%; }
+.skeleton-line.medium { width: 50%; }
+.skeleton-line.narrow { width: 40%; }
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* Progress bar */
 .progress-wrapper {
   position: relative;
