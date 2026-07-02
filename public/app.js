@@ -72,6 +72,12 @@ const state = {
   tempIdCounter: -1,
 };
 
+let searchActiveIndex = -1;
+let confirmResolve    = null;
+let lastFocusedEl     = null;
+let foundTriggerEl    = null;
+let toastTimer        = null;
+
 /* ============================================================
    BOOTSTRAP
    ============================================================ */
@@ -84,8 +90,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupSearch();
   setupNewHuntForm();
   setupOverlay();
+  setupConfirmModal();
   setupInstallPrompt();
   setupOnlineOffline();
+  setupGlobalKeydown();
 
   // Honour ?tab= param from PWA shortcuts
   const tab = new URLSearchParams(location.search).get('tab');
@@ -192,7 +200,9 @@ async function loadHunts() {
     state.hunts = [...tempHunts, ...hunts];
     saveToStorage();
     renderAll();
-  } catch (_) { /* use cache */ }
+  } catch (_) {
+    if (state.hunts.length > 0) showToast('Using cached hunt data');
+  }
 }
 
 /* ============================================================
@@ -209,7 +219,14 @@ async function loadPokemonList() {
     try { state.pokemonList = JSON.parse(cached); return; } catch (_) {}
   }
 
-  if (!state.isOnline) return;
+  if (!state.isOnline) {
+    if (state.pokemonList.length === 0) showToast('Offline — search may be limited');
+    return;
+  }
+
+  const input = document.getElementById('pokemon-search');
+  const prevPlaceholder = input.placeholder;
+  input.placeholder = 'Loading Pokémon…';
 
   try {
     const res = await fetch(`${API}/pokemon/list`);
@@ -219,7 +236,11 @@ async function loadPokemonList() {
     state.pokemonList = list;
     localStorage.setItem(LS_PKMN_LIST, JSON.stringify(list));
     localStorage.setItem(LS_PKMN_TIME, String(Date.now()));
-  } catch (_) {}
+  } catch (_) {
+    showToast('Could not load Pokémon list');
+  } finally {
+    input.placeholder = prevPlaceholder;
+  }
 }
 
 /* ============================================================
@@ -252,7 +273,12 @@ function renderActiveHunts() {
   const active    = state.hunts.filter(h => !h.completed);
 
   if (active.length === 0) {
-    container.innerHTML = `<div class="empty-state">No active hunts yet.<br>Search for a Pokemon above to start.</div>`;
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-state-icon" aria-hidden="true">🔍</span>
+        <div class="empty-state-title">No active hunts yet</div>
+        Search for a Pokémon above to start.
+      </div>`;
     return;
   }
   container.innerHTML = active.map(buildHuntCard).join('');
@@ -263,10 +289,38 @@ function renderTrophy() {
   const found     = state.hunts.filter(h => h.completed);
 
   if (found.length === 0) {
-    container.innerHTML = `<div class="empty-state">No shinies found yet.<br>Keep hunting.</div>`;
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-state-icon" aria-hidden="true">🏆</span>
+        <div class="empty-state-title">No shinies found yet</div>
+        Your first shiny belongs here. Keep hunting!
+      </div>`;
     return;
   }
   container.innerHTML = found.map(buildTrophyCard).join('');
+}
+
+function updateHuntCard(id) {
+  const hunt = getHunt(id);
+  if (!hunt || hunt.completed) return;
+
+  const container = document.getElementById('hunts-container');
+  const existing  = container.querySelector(`[data-id="${id}"]`);
+
+  if (existing) {
+    const temp    = document.createElement('div');
+    temp.innerHTML = buildHuntCard(hunt);
+    const newCard = temp.firstElementChild;
+    existing.replaceWith(newCard);
+
+    const counter = newCard.querySelector('.counter-value');
+    if (counter) {
+      counter.classList.add('bump');
+      counter.addEventListener('animationend', () => counter.classList.remove('bump'), { once: true });
+    }
+  } else {
+    renderActiveHunts();
+  }
 }
 
 function renderFullStats() {
@@ -274,7 +328,12 @@ function renderFullStats() {
   const hunts     = state.hunts;
 
   if (hunts.length === 0) {
-    container.innerHTML = `<div class="empty-state">Start your first hunt to see statistics here.</div>`;
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-state-icon" aria-hidden="true">📊</span>
+        <div class="empty-state-title">No statistics yet</div>
+        Start your first hunt to see stats here.
+      </div>`;
     return;
   }
 
@@ -288,13 +347,13 @@ function renderFullStats() {
   const longest  = found.reduce((m, h) => (!m || h.hunt_count > m.hunt_count) ? h : m, null);
 
   const rows = [
-    { icon: 'H', label: 'Hunts Started',           value: hunts.length },
-    { icon: 'S', label: 'Shinies Found',            value: found.length },
-    { icon: 'A', label: 'Active Hunts',             value: active.length },
-    { icon: '#', label: 'Total Encounters',          value: totalE.toLocaleString() },
-    { icon: 'AVG', label: 'Avg Encounters per Shiny', value: avgE ? avgE.toLocaleString() : '—' },
-    luckiest ? { icon: 'LOW', label: 'Luckiest Hunt', value: `${cap(luckiest.pokemon_name)} (${luckiest.hunt_count.toLocaleString()})` } : null,
-    longest  ? { icon: 'HIGH', label: 'Longest Hunt',  value: `${cap(longest.pokemon_name)} (${longest.hunt_count.toLocaleString()})` } : null,
+    { icon: '⚔️', label: 'Hunts Started',            value: hunts.length },
+    { icon: '✨', label: 'Shinies Found',             value: found.length },
+    { icon: '🎯', label: 'Active Hunts',              value: active.length },
+    { icon: '🔢', label: 'Total Encounters',           value: totalE.toLocaleString() },
+    { icon: '📊', label: 'Avg Encounters per Shiny',  value: avgE ? avgE.toLocaleString() : '—' },
+    luckiest ? { icon: '🍀', label: 'Luckiest Hunt', value: `${cap(luckiest.pokemon_name)} (${luckiest.hunt_count.toLocaleString()})` } : null,
+    longest  ? { icon: '⏳', label: 'Longest Hunt',  value: `${cap(longest.pokemon_name)} (${longest.hunt_count.toLocaleString()})` } : null,
   ].filter(Boolean);
 
   container.innerHTML = rows.map(r => `
@@ -333,9 +392,10 @@ function buildHuntCard(hunt) {
 
   const target      = hunt.target_count;
   const progressPct = target ? Math.min(100, Math.round(count / target * 100)) : 0;
+  const nearTarget  = target && progressPct >= 90;
   const progressHtml = target
     ? `<div class="progress-wrapper">
-         <div class="progress-bar" style="width:${progressPct}%"></div>
+         <div class="progress-bar${nearTarget ? ' near-target' : ''}" style="width:${progressPct}%"></div>
          <span class="progress-label">${count.toLocaleString()} / ${Number(target).toLocaleString()}</span>
        </div>`
     : '';
@@ -435,31 +495,77 @@ function setupSearch() {
   input.addEventListener('input', e => {
     clearTimeout(timer);
     const q = e.target.value.trim().toLowerCase();
-    if (q.length < 2) { results.classList.remove('active'); return; }
+    if (q.length < 2) {
+      results.classList.remove('active');
+      input.setAttribute('aria-expanded', 'false');
+      searchActiveIndex = -1;
+      return;
+    }
     timer = setTimeout(() => showSearchResults(q), 220);
   });
 
+  input.addEventListener('keydown', e => {
+    const items = results.querySelectorAll('.search-item');
+    if (!results.classList.contains('active') || items.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      searchActiveIndex = Math.min(searchActiveIndex + 1, items.length - 1);
+      highlightSearchItem(items, input);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      searchActiveIndex = Math.max(searchActiveIndex - 1, 0);
+      highlightSearchItem(items, input);
+    } else if (e.key === 'Enter' && searchActiveIndex >= 0) {
+      e.preventDefault();
+      items[searchActiveIndex].click();
+    } else if (e.key === 'Escape') {
+      results.classList.remove('active');
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+      searchActiveIndex = -1;
+    }
+  });
+
   input.addEventListener('blur', () => {
-    setTimeout(() => results.classList.remove('active'), 200);
+    setTimeout(() => {
+      results.classList.remove('active');
+      input.setAttribute('aria-expanded', 'false');
+      searchActiveIndex = -1;
+    }, 200);
   });
 
   document.getElementById('clear-selection').addEventListener('click', clearSelection);
 }
 
+function highlightSearchItem(items, input) {
+  items.forEach((item, i) => {
+    const active = i === searchActiveIndex;
+    item.classList.toggle('active', active);
+    if (active) {
+      item.scrollIntoView({ block: 'nearest' });
+      input.setAttribute('aria-activedescendant', item.id);
+    }
+  });
+}
+
 function showSearchResults(q) {
   const results = document.getElementById('search-results');
+  const input   = document.getElementById('pokemon-search');
+  searchActiveIndex = -1;
 
   let matches = state.pokemonList
     .filter(p => p.name.includes(q))
     .slice(0, 10);
 
   if (matches.length > 0) {
-    results.innerHTML = matches.map(p => `
-      <div class="search-item" data-name="${p.name}" data-sprite="${p.sprite || ''}" role="option" tabindex="0">
-        ${p.sprite ? `<img src="${escapeAttr(p.sprite)}" alt="${escapeAttr(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/icon.svg';">` : ''}
+    results.innerHTML = matches.map((p, i) => `
+      <div class="search-item" id="search-item-${i}" data-name="${p.name}" data-sprite="${p.sprite || ''}" role="option" tabindex="-1">
+        ${p.sprite ? `<img src="${escapeAttr(p.sprite)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/icon.svg';">` : ''}
         <span>${escapeHtml(cap(p.name))}</span>
       </div>`).join('');
     results.classList.add('active');
+    input.setAttribute('aria-expanded', 'true');
     results.querySelectorAll('.search-item').forEach(item => {
       const handler = () => selectByName(item.dataset.name, item.dataset.sprite);
       item.addEventListener('click', handler);
@@ -475,17 +581,25 @@ function showSearchResults(q) {
 
 async function fetchAndShowResult(q) {
   const results = document.getElementById('search-results');
+  const input   = document.getElementById('pokemon-search');
+  results.innerHTML = '<div class="search-loading">Searching…</div>';
+  results.classList.add('active');
+  input.setAttribute('aria-expanded', 'true');
+
   try {
     const res  = await fetch(`${API}/pokemon/search?q=${encodeURIComponent(q)}`);
     const data = await res.json();
-    if (!data.length) { results.classList.remove('active'); return; }
+    if (!data.length) {
+      results.classList.remove('active');
+      input.setAttribute('aria-expanded', 'false');
+      return;
+    }
 
-    results.innerHTML = data.map(p => `
-      <div class="search-item" data-name="${p.name}" data-sprite="${p.sprite || ''}" data-types="${(p.types || []).join(',')}">
-        ${p.sprite ? `<img src="${escapeAttr(p.sprite)}" alt="${escapeAttr(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/icon.svg';">` : ''}
+    results.innerHTML = data.map((p, i) => `
+      <div class="search-item" id="search-item-${i}" data-name="${p.name}" data-sprite="${p.sprite || ''}" data-types="${(p.types || []).join(',')}" role="option" tabindex="-1">
+        ${p.sprite ? `<img src="${escapeAttr(p.sprite)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/icon.svg';">` : ''}
         <span>${escapeHtml(cap(p.name))}</span>
       </div>`).join('');
-    results.classList.add('active');
 
     results.querySelectorAll('.search-item').forEach(item => {
       item.addEventListener('click', () => {
@@ -493,7 +607,10 @@ async function fetchAndShowResult(q) {
         applySelection(item.dataset.name, item.dataset.sprite, types);
       });
     });
-  } catch (_) {}
+  } catch (_) {
+    results.classList.remove('active');
+    input.setAttribute('aria-expanded', 'false');
+  }
 }
 
 // Apply the sprite immediately (from the list), then fetch types in background
@@ -546,8 +663,28 @@ function setupNewHuntForm() {
 }
 
 function updateStartBtn() {
-  const game = document.getElementById('game-select').value;
-  document.getElementById('start-hunt').disabled = !state.selected || !game;
+  const game  = document.getElementById('game-select').value;
+  const hint  = document.getElementById('start-hunt-hint');
+  const btn   = document.getElementById('start-hunt');
+
+  const duplicate = state.selected && game && state.hunts.some(
+    h => !h.completed && h.pokemon_name === state.selected.name && h.game === game
+  );
+
+  if (duplicate) {
+    hint.textContent = `You already have an active ${cap(state.selected.name)} hunt in ${game}`;
+    hint.classList.add('warning');
+    hint.classList.remove('hidden');
+    btn.disabled = true;
+  } else if (!state.selected || !game) {
+    hint.textContent = 'Select a Pokémon and game to continue';
+    hint.classList.remove('warning');
+    hint.classList.remove('hidden');
+    btn.disabled = true;
+  } else {
+    hint.classList.add('hidden');
+    btn.disabled = false;
+  }
 }
 
 async function startHunt() {
@@ -556,6 +693,11 @@ async function startHunt() {
   const game   = document.getElementById('game-select').value;
   const rawTgt = document.getElementById('target-count').value;
   const target = rawTgt ? parseInt(rawTgt, 10) : null;
+  const btn    = document.getElementById('start-hunt');
+  const name   = cap(state.selected.name);
+
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
 
   const huntData = {
     pokemon_name: state.selected.name,
@@ -565,27 +707,35 @@ async function startHunt() {
     target_count: target,
   };
 
-  if (state.isOnline) {
-    try {
-      const res = await fetch(`${API}/hunts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(huntData),
-      });
-      if (res.ok) {
-        const hunt = await res.json();
-        state.hunts = [hunt, ...state.hunts];
+  try {
+    if (state.isOnline) {
+      try {
+        const res = await fetch(`${API}/hunts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(huntData),
+        });
+        if (res.ok) {
+          const hunt = await res.json();
+          state.hunts = [hunt, ...state.hunts];
+        } else {
+          addTempHunt(huntData);
+        }
+      } catch (_) {
+        addTempHunt(huntData);
       }
-    } catch (_) {
+    } else {
       addTempHunt(huntData);
     }
-  } else {
-    addTempHunt(huntData);
-  }
 
-  resetForm();
-  saveToStorage();
-  renderAll();
+    resetForm();
+    saveToStorage();
+    renderAll();
+    showToast(`Hunt started: ${name}`);
+  } finally {
+    btn.textContent = 'Start Hunt ✨';
+    updateStartBtn();
+  }
 }
 
 function addTempHunt(huntData) {
@@ -621,7 +771,8 @@ function incrementCounter(id, delta) {
   const newCount = Math.max(0, (hunt.hunt_count || 0) + delta);
   hunt.hunt_count = newCount;
   saveToStorage();
-  renderAll();
+  updateHuntCard(id);
+  renderStatsBar();
 
   if (state.isOnline) {
     fetch(`${API}/hunts/${id}`, {
@@ -644,12 +795,20 @@ function incrementCounter(id, delta) {
 
 function setupOverlay() {
   document.getElementById('found-confirm').addEventListener('click', confirmFound);
-  document.getElementById('found-cancel').addEventListener('click', () => {
-    document.getElementById('found-overlay').classList.add('hidden');
-  });
+  document.getElementById('found-cancel').addEventListener('click', closeFoundOverlay);
   document.getElementById('found-overlay').addEventListener('click', e => {
-    if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+    if (e.target === e.currentTarget) closeFoundOverlay();
   });
+}
+
+function closeFoundOverlay() {
+  document.getElementById('found-overlay').classList.add('hidden');
+  document.querySelector('.app').removeAttribute('aria-hidden');
+  state.pendingFoundId = null;
+  if (foundTriggerEl) {
+    foundTriggerEl.focus();
+    foundTriggerEl = null;
+  }
 }
 
 function foundIt(id) {
@@ -657,13 +816,16 @@ function foundIt(id) {
   if (!hunt) return;
 
   state.pendingFoundId = id;
+  foundTriggerEl = document.querySelector(`[data-action="found"][data-id="${id}"]`);
 
   document.getElementById('found-sprite').src    = hunt.sprite_url || '';
   document.getElementById('found-message').textContent =
     `${cap(hunt.pokemon_name)} found after ${(hunt.hunt_count || 0).toLocaleString()} encounter${hunt.hunt_count !== 1 ? 's' : ''}!`;
 
   buildOverlaySparkles();
+  document.querySelector('.app').setAttribute('aria-hidden', 'true');
   document.getElementById('found-overlay').classList.remove('hidden');
+  document.getElementById('found-confirm').focus();
 }
 
 function buildOverlaySparkles() {
@@ -687,6 +849,8 @@ async function confirmFound() {
 
   saveToStorage();
   document.getElementById('found-overlay').classList.add('hidden');
+  document.querySelector('.app').removeAttribute('aria-hidden');
+  foundTriggerEl = null;
 
   const body = { completed: true, completed_at: completedAt };
 
@@ -703,14 +867,26 @@ async function confirmFound() {
   }
 
   renderAll();
+  showToast('Added to trophy cabinet!');
   setTimeout(() => switchTab('trophy'), 450);
 }
 
 async function unmarkComplete(id) {
   const hunt = getHunt(id);
+  const name = hunt ? cap(hunt.pokemon_name) : 'this Pokémon';
+
+  const confirmed = await showConfirm({
+    title: 'Un-mark shiny?',
+    message: `Move ${name} back to active hunts?`,
+    actionLabel: 'Un-mark',
+    destructive: false,
+  });
+  if (!confirmed) return;
+
   if (hunt) { hunt.completed = false; hunt.completed_at = null; }
   saveToStorage();
   renderAll();
+  showToast('Moved back to active hunts');
 
   const body = { completed: false, completed_at: null };
   if (state.isOnline) {
@@ -731,11 +907,21 @@ async function unmarkComplete(id) {
    ============================================================ */
 
 async function deleteHunt(id) {
-  if (!confirm('Delete this hunt? This cannot be undone.')) return;
+  const hunt = getHunt(id);
+  const name = hunt ? cap(hunt.pokemon_name) : 'this hunt';
+
+  const confirmed = await showConfirm({
+    title: 'Delete hunt?',
+    message: `Remove ${name} from your hunts? This cannot be undone.`,
+    actionLabel: 'Delete',
+    destructive: true,
+  });
+  if (!confirmed) return;
 
   state.hunts = state.hunts.filter(h => String(h.id) !== String(id));
   saveToStorage();
   renderAll();
+  showToast('Hunt deleted');
 
   if (state.isOnline) {
     try {
@@ -751,6 +937,26 @@ async function deleteHunt(id) {
    ============================================================ */
 
 function setupTabs() {
+  const tablist = document.querySelector('.tab-nav');
+
+  tablist.addEventListener('keydown', e => {
+    const tabs = [...document.querySelectorAll('.tab-btn')];
+    const idx  = tabs.findIndex(t => t.classList.contains('active'));
+    if (idx < 0) return;
+
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const next = tabs[(idx + 1) % tabs.length];
+      switchTab(next.dataset.tab);
+      next.focus();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = tabs[(idx - 1 + tabs.length) % tabs.length];
+      switchTab(prev.dataset.tab);
+      prev.focus();
+    }
+  });
+
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -764,7 +970,83 @@ function switchTab(tab) {
     btn.setAttribute('aria-selected', active);
   });
   document.querySelectorAll('.tab-content').forEach(el => {
-    el.classList.toggle('active', el.id === `tab-${tab}`);
+    const isActive = el.id === `tab-${tab}`;
+    el.classList.toggle('active', isActive);
+    el.setAttribute('aria-hidden', !isActive);
+  });
+}
+
+/* ============================================================
+   CONFIRM MODAL
+   ============================================================ */
+
+function setupConfirmModal() {
+  document.getElementById('confirm-cancel').addEventListener('click', () => closeConfirm(false));
+  document.getElementById('confirm-overlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeConfirm(false);
+  });
+}
+
+function showConfirm({ title, message, actionLabel, destructive = false }) {
+  return new Promise(resolve => {
+    confirmResolve = resolve;
+    lastFocusedEl  = document.activeElement;
+
+    document.getElementById('confirm-title').textContent   = title;
+    document.getElementById('confirm-message').textContent = message;
+
+    const actionBtn = document.getElementById('confirm-action');
+    actionBtn.textContent = actionLabel;
+    actionBtn.className   = `confirm-action-btn ${destructive ? 'destructive' : 'primary'}`;
+    actionBtn.onclick     = () => closeConfirm(true);
+
+    document.querySelector('.app').setAttribute('aria-hidden', 'true');
+    document.getElementById('confirm-overlay').classList.remove('hidden');
+    document.getElementById('confirm-cancel').focus();
+  });
+}
+
+function closeConfirm(confirmed = false) {
+  document.getElementById('confirm-overlay').classList.add('hidden');
+  document.querySelector('.app').removeAttribute('aria-hidden');
+  if (lastFocusedEl) {
+    lastFocusedEl.focus();
+    lastFocusedEl = null;
+  }
+  if (confirmResolve) {
+    confirmResolve(confirmed);
+    confirmResolve = null;
+  }
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+
+function showToast(message, duration = 3000) {
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), duration);
+}
+
+/* ============================================================
+   GLOBAL KEYBOARD
+   ============================================================ */
+
+function setupGlobalKeydown() {
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+
+    const foundOverlay   = document.getElementById('found-overlay');
+    const confirmOverlay = document.getElementById('confirm-overlay');
+
+    if (!foundOverlay.classList.contains('hidden')) {
+      closeFoundOverlay();
+    } else if (!confirmOverlay.classList.contains('hidden')) {
+      closeConfirm(false);
+    }
   });
 }
 

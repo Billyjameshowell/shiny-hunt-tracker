@@ -62,8 +62,9 @@
 
     <!-- Header -->
     <header class="app-header">
-      <h1>✨ Shiny Hunt Tracker</h1>
-      <div id="sync-badge" class="sync-badge hidden">Syncing…</div>
+      <img src="/icon.svg" alt="" class="app-logo" width="40" height="40">
+      <h1>Shiny Hunt Tracker</h1>
+      <div id="sync-badge" class="sync-badge hidden" aria-live="polite">Syncing…</div>
     </header>
 
     <!-- Stats bar -->
@@ -87,21 +88,21 @@
     </div>
 
     <!-- Tab navigation -->
-    <nav class="tab-nav" role="tablist">
-      <button class="tab-btn active" data-tab="hunt" role="tab" aria-selected="true">🔍 Hunt</button>
-      <button class="tab-btn" data-tab="trophy" role="tab" aria-selected="false">🏆 Trophy</button>
-      <button class="tab-btn" data-tab="stats" role="tab" aria-selected="false">📊 Stats</button>
+    <nav class="tab-nav" role="tablist" aria-label="Main navigation">
+      <button id="tab-btn-hunt" class="tab-btn active" data-tab="hunt" role="tab" aria-selected="true" aria-controls="tab-hunt" aria-label="Hunt">🔍 <span class="tab-label">Hunt</span></button>
+      <button id="tab-btn-trophy" class="tab-btn" data-tab="trophy" role="tab" aria-selected="false" aria-controls="tab-trophy" aria-label="Trophy cabinet">🏆 <span class="tab-label">Trophy</span></button>
+      <button id="tab-btn-stats" class="tab-btn" data-tab="stats" role="tab" aria-selected="false" aria-controls="tab-stats" aria-label="Statistics">📊 <span class="tab-label">Stats</span></button>
     </nav>
 
     <!-- ═══════════════════════════ HUNT TAB ═══════════════════════════ -->
-    <div id="tab-hunt" class="tab-content active" role="tabpanel">
+    <div id="tab-hunt" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-hunt" aria-hidden="false">
 
       <!-- New hunt form -->
       <section class="new-hunt-panel">
         <h2>Start New Hunt</h2>
 
         <div class="search-container">
-          <input type="text" id="pokemon-search" placeholder="Search Pokémon…" autocomplete="off" spellcheck="false">
+          <input type="text" id="pokemon-search" placeholder="Search Pokémon…" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list">
           <div id="search-results" class="search-results" role="listbox"></div>
         </div>
 
@@ -119,8 +120,8 @@
         <select id="game-select">
           <option value="">Select Game…</option>
           <optgroup label="Gen 1 (no shiny mechanic)">
-            <option value="Red/Blue">Red / Blue</option>
-            <option value="Yellow">Yellow</option>
+            <option value="Red/Blue" disabled>Red / Blue — no shinies</option>
+            <option value="Yellow" disabled>Yellow — no shinies</option>
           </optgroup>
           <optgroup label="Gen 2 — 1/8192">
             <option value="Gold/Silver">Gold / Silver</option>
@@ -164,6 +165,7 @@
           <input type="number" id="target-count" placeholder="e.g. 500" min="1" max="99999">
         </div>
 
+        <p id="start-hunt-hint" class="form-hint">Select a Pokémon and game to continue</p>
         <button id="start-hunt" disabled>Start Hunt ✨</button>
       </section>
 
@@ -176,7 +178,7 @@
     </div><!-- /tab-hunt -->
 
     <!-- ═══════════════════════════ TROPHY TAB ═══════════════════════════ -->
-    <div id="tab-trophy" class="tab-content" role="tabpanel">
+    <div id="tab-trophy" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-trophy" aria-hidden="true">
       <section class="trophy-section">
         <h2>🏆 Trophy Cabinet</h2>
         <p class="section-subtitle">Your found shinies</p>
@@ -185,7 +187,7 @@
     </div>
 
     <!-- ═══════════════════════════ STATS TAB ═══════════════════════════ -->
-    <div id="tab-stats" class="tab-content" role="tabpanel">
+    <div id="tab-stats" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-stats" aria-hidden="true">
       <section class="full-stats-section">
         <h2>📊 Hunt Statistics</h2>
         <div id="stats-container" class="stats-grid"></div>
@@ -202,9 +204,22 @@
       <h2>✨ SHINY FOUND! ✨</h2>
       <p id="found-message"></p>
       <button id="found-confirm">Add to Trophy Cabinet 🏆</button>
-      <button id="found-cancel" class="found-cancel-btn">Keep Hunting</button>
+      <button id="found-cancel" class="found-cancel-btn">Not yet — keep counting</button>
     </div>
   </div>
+
+  <!-- ═══════════════════════════ CONFIRM OVERLAY ═══════════════════════════ -->
+  <div id="confirm-overlay" class="confirm-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="confirm-modal">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-message"></p>
+      <button id="confirm-action" class="confirm-action-btn"></button>
+      <button id="confirm-cancel" class="confirm-cancel-btn">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script src="app.js"></script>
   <script>
