@@ -747,8 +747,8 @@ select:focus-visible,
 
 /* Hunts loading */
 .hunts-loading-indicator {
-  font-size: 0.78rem;
-  color: var(--text-muted);
+  font-size: 1rem;
+  color: #c8d8f0;
   margin: -8px 0 12px;
   text-align: center;
 }
