@@ -70,6 +70,7 @@ const state = {
   isOnline: navigator.onLine,
   pendingFoundId: null,
   tempIdCounter: -1,
+  huntsLoading: false,
 };
 
 let searchActiveIndex = -1;
@@ -77,6 +78,7 @@ let confirmResolve    = null;
 let lastFocusedEl     = null;
 let foundTriggerEl    = null;
 let toastTimer        = null;
+let initialHuntsLoad  = true;
 
 /* ============================================================
    BOOTSTRAP
@@ -190,7 +192,14 @@ async function syncPendingOps() {
    ============================================================ */
 
 async function loadHunts() {
-  if (!state.isOnline) return;
+  if (!state.isOnline) {
+    if (initialHuntsLoad) initialHuntsLoad = false;
+    return;
+  }
+
+  const isBoot = initialHuntsLoad;
+  if (isBoot) setHuntsLoading(true);
+
   try {
     const res = await fetch(`${API}/hunts`);
     if (!res.ok) return;
@@ -202,7 +211,55 @@ async function loadHunts() {
     renderAll();
   } catch (_) {
     if (state.hunts.length > 0) showToast('Using cached hunt data');
+  } finally {
+    if (isBoot) {
+      setHuntsLoading(false);
+      initialHuntsLoad = false;
+    }
   }
+}
+
+function setHuntsLoading(loading) {
+  state.huntsLoading = loading;
+  const section   = document.querySelector('.hunts-section');
+  const container = document.getElementById('hunts-container');
+  let indicator   = document.getElementById('hunts-loading-indicator');
+
+  if (loading) {
+    section.classList.add('hunts-loading');
+    const hasActive = state.hunts.some(h => !h.completed);
+
+    if (!hasActive) {
+      container.innerHTML = buildHuntsSkeleton();
+      container.setAttribute('aria-busy', 'true');
+    } else if (!indicator) {
+      indicator = document.createElement('p');
+      indicator.id = 'hunts-loading-indicator';
+      indicator.className = 'hunts-loading-indicator';
+      indicator.textContent = 'Refreshing hunts…';
+      section.querySelector('h2').insertAdjacentElement('afterend', indicator);
+    }
+    return;
+  }
+
+  section.classList.remove('hunts-loading');
+  indicator?.remove();
+  container.removeAttribute('aria-busy');
+  renderActiveHunts();
+}
+
+function buildHuntsSkeleton() {
+  return Array.from({ length: 2 }, () => `
+    <div class="hunt-card-skeleton" aria-hidden="true">
+      <div class="skeleton-bar"></div>
+      <div class="skeleton-body">
+        <div class="skeleton-circle"></div>
+        <div class="skeleton-line wide"></div>
+        <div class="skeleton-line narrow"></div>
+        <div class="skeleton-line medium"></div>
+      </div>
+    </div>
+  `).join('');
 }
 
 /* ============================================================
@@ -387,6 +444,10 @@ function buildHuntCard(hunt) {
     ? `<div class="odds-row">
          <span class="odds-base">1/${odds.toLocaleString()} base</span>
          <span class="odds-prob ${probClass(count, odds)}">${calcProb(count, odds)}% chance</span>
+         <span class="odds-help-wrap">
+           <button type="button" class="odds-help-btn" aria-label="Explain shiny odds">?</button>
+           <span class="odds-tooltip" role="tooltip">${escapeHtml(oddsHelpText(count, odds))}</span>
+         </span>
        </div>`
     : `<div class="odds-row"><span class="odds-base" title="No shiny mechanic in Gen 1">No shinies in Gen 1</span></div>`;
 
@@ -466,6 +527,17 @@ function buildTrophyCard(hunt) {
    ============================================================ */
 
 document.addEventListener('click', e => {
+  const helpBtn = e.target.closest('.odds-help-btn');
+  if (helpBtn) {
+    e.stopPropagation();
+    const wrap = helpBtn.closest('.odds-help-wrap');
+    const wasOpen = wrap.classList.contains('open');
+    document.querySelectorAll('.odds-help-wrap.open').forEach(w => w.classList.remove('open'));
+    if (!wasOpen) wrap.classList.add('open');
+    return;
+  }
+  document.querySelectorAll('.odds-help-wrap.open').forEach(w => w.classList.remove('open'));
+
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const { action, id } = btn.dataset;
@@ -1037,15 +1109,20 @@ function showToast(message, duration = 3000) {
 
 function setupGlobalKeydown() {
   document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape') return;
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.odds-help-wrap.open').forEach(w => w.classList.remove('open'));
 
-    const foundOverlay   = document.getElementById('found-overlay');
-    const confirmOverlay = document.getElementById('confirm-overlay');
+      const foundOverlay   = document.getElementById('found-overlay');
+      const confirmOverlay = document.getElementById('confirm-overlay');
 
-    if (!foundOverlay.classList.contains('hidden')) {
-      closeFoundOverlay();
-    } else if (!confirmOverlay.classList.contains('hidden')) {
-      closeConfirm(false);
+      if (!foundOverlay.classList.contains('hidden')) {
+        closeFoundOverlay();
+        return;
+      }
+      if (!confirmOverlay.classList.contains('hidden')) {
+        closeConfirm(false);
+      }
+      return;
     }
   });
 }
@@ -1123,6 +1200,11 @@ function probClass(count, odds) {
   if (p >= 75) return 'odds-high';
   if (p >= 40) return 'odds-medium';
   return 'odds-low';
+}
+
+function oddsHelpText(count, odds) {
+  const n = count || 0;
+  return `Chance of at least one shiny in ${n.toLocaleString()} encounter${n !== 1 ? 's' : ''} at 1/${odds.toLocaleString()} odds per encounter.`;
 }
 
 function fmtDate(dateStr) {
