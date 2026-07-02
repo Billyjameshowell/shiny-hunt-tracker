@@ -89,9 +89,9 @@
 
     <!-- Tab navigation -->
     <nav class="tab-nav" role="tablist" aria-label="Main navigation">
-      <button id="tab-btn-hunt" class="tab-btn active" data-tab="hunt" role="tab" aria-selected="true" aria-controls="tab-hunt" aria-label="Hunt">🔍 <span class="tab-label">Hunt</span></button>
-      <button id="tab-btn-trophy" class="tab-btn" data-tab="trophy" role="tab" aria-selected="false" aria-controls="tab-trophy" aria-label="Trophy cabinet">🏆 <span class="tab-label">Trophy</span></button>
-      <button id="tab-btn-stats" class="tab-btn" data-tab="stats" role="tab" aria-selected="false" aria-controls="tab-stats" aria-label="Statistics">📊 <span class="tab-label">Stats</span></button>
+      <button id="tab-btn-hunt" class="tab-btn active" data-tab="hunt" role="tab" aria-selected="true" aria-controls="tab-hunt"><span class="tab-icon" aria-hidden="true">🔍</span> <span class="tab-label">Hunt</span></button>
+      <button id="tab-btn-trophy" class="tab-btn" data-tab="trophy" role="tab" aria-selected="false" aria-controls="tab-trophy"><span class="tab-icon" aria-hidden="true">🏆</span> <span class="tab-label">Trophy</span></button>
+      <button id="tab-btn-stats" class="tab-btn" data-tab="stats" role="tab" aria-selected="false" aria-controls="tab-stats"><span class="tab-icon" aria-hidden="true">📊</span> <span class="tab-label">Stats</span></button>
     </nav>
 
     <!-- ═══════════════════════════ HUNT TAB ═══════════════════════════ -->
@@ -117,6 +117,7 @@
         </div>
 
         <!-- Game select -->
+        <label for="game-select" class="field-label">Game</label>
         <select id="game-select">
           <option value="">Select Game…</option>
           <optgroup label="Gen 1 (no shiny mechanic)">

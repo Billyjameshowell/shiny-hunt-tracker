@@ -13,8 +13,8 @@
   --bg-card:    #16213e;
   --bg-panel:   #1a2545;
   --text:       #e8e8f0;
-  --text-muted: #7a8099;
-  --text-subtle:#5a6080;
+  --text-muted: #8d94ad;
+  --text-subtle:#6d7590;
   --gold:       #ffd700;
   --gold-glow:  rgba(255, 215, 0, 0.25);
   --green:      #4ade80;
@@ -394,6 +394,15 @@ select:focus-visible,
   transition: border-color 0.2s;
 }
 #game-select:focus { outline: none; border-color: var(--gold); }
+
+.field-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
 
 /* Target input */
 .target-row {
@@ -1253,7 +1262,17 @@ select:focus-visible,
 }
 
 @media (max-width: 400px) {
-  .tab-label { display: none; }
+  .tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 
 @media (max-width: 360px) {
