@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://shiny-hunt-tracker.fly.dev/sitemap.xml
+Sitemap: __SITE_URL__/sitemap.xml
