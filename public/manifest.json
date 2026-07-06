@@ -4,8 +4,8 @@
   "description": "Track Pokemon shiny hunts with fast counters, shiny odds, progress targets, stats, and an offline-ready trophy cabinet.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0d0d1a",
-  "theme_color": "#0d0d1a",
+  "background_color": "#2868a8",
+  "theme_color": "#2868a8",
   "orientation": "portrait-primary",
   "categories": ["games", "utilities"],
   "icons": [
